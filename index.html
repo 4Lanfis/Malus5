@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Malus Stufe 5 - Inline Stream</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Font JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background-color: #050505;
+            color: #d4d4d4;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0a0a0a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #262626;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3b82f6;
+        }
+
+        /* Inline Item Interaktivität ohne Felder/Rahmen */
+        .pass-item {
+            color: #e5e5e5;
+            cursor: pointer;
+            transition: all 0.15s ease-in-out;
+            padding: 1px 3px;
+            border-radius: 2px;
+            display: inline-block;
+            word-break: keep-all;
+            white-space: nowrap;
+        }
+        .pass-item:hover {
+            color: #60a5fa;
+            background-color: #1e293b;
+            text-shadow: 0 0 8px rgba(96, 165, 250, 0.5);
+        }
+        .pass-item:active {
+            transform: scale(0.96);
+        }
+
+        /* Flash Feedback beim Kopieren */
+        .pass-item.copied {
+            color: #4ade80 !important;
+            background-color: rgba(34, 197, 94, 0.2) !important;
+            text-shadow: 0 0 10px #22c55e;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-2 sm:p-4 select-none">
+
+    <!-- Toast Banner Notification -->
+    <div id="toast" class="fixed top-4 bg-neutral-900 border border-blue-500 text-white font-bold px-4 py-2.5 text-xs sm:text-sm font-mono shadow-2xl transition-all duration-300 -translate-y-20 opacity-0 z-50 rounded flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+        <span id="toast-message">MELDUNG</span>
+    </div>
+
+    <!-- Main Container -->
+    <div class="w-full max-w-7xl bg-neutral-950 p-3 sm:p-6 rounded-xl shadow-2xl border border-neutral-900">
+        
+        <!-- Header -->
+        <div class="border-b border-neutral-800 pb-3 mb-4 text-center">
+            <h1 class="text-xl sm:text-3xl font-extrabold tracking-wider text-white">MALUS STUFE 5</h1>
+            <p class="text-[10px] sm:text-xs text-neutral-500 font-mono mt-0.5">100 Passwörter</p>
+            
+            <!-- Dynamic Stats Bar -->
+            <div class="flex flex-wrap justify-center gap-2 sm:gap-4 mt-3 text-[10px] sm:text-[11px] font-mono text-neutral-400">
+                <div class="bg-neutral-900 px-2.5 py-1 rounded border border-neutral-800">
+                    TOTAL: <span class="text-blue-400 font-bold">100 PASSWÖRTER</span>
+                </div>
+                <div class="bg-neutral-900 px-2.5 py-1 rounded border border-neutral-800">
+                    KOPIERT: <span id="stat-copied" class="text-emerald-400 font-bold">0 / 100</span>
+                </div>
+                <div class="bg-neutral-900 px-2.5 py-1 rounded border border-neutral-800">
+                    MODUS: <span class="text-amber-400 font-bold">4-SPALTEN FLIESS-TEXT (1-KLICK)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Inline Password Stream (Kompakter Text nebeneinander, 4 Spalten) -->
+        <div id="password-stream" class="font-mono text-[10px] sm:text-xs leading-relaxed max-h-[75vh] overflow-y-auto p-2 grid grid-cols-4 gap-2 text-center">
+            <!-- Items via JavaScript -->
+        </div>
+
+        <!-- Footer Bar -->
+        <div class="mt-4 pt-2 border-t border-neutral-800 flex justify-between text-[10px] text-neutral-500 font-mono">
+            <span>STREAM_ID: #100-M5</span>
+            <span>KLICKE EIN PASSWORT ZUM KOPIEREN</span>
+        </div>
+    </div>
+
+    <script>
+        // 100 Festgelegte 16-stellige Passwörter
+        const FIXED_PASSWORDS_100 = [
+            "xK9#mP2$vL8!qN5w", "aR7&tW4*yU1^zB9q", "mK3$vP8!qN5wX9#L", "bT8*yU2^zB9qC4@x", "pW5!qN9wX2#LmR7$",
+            "cJ9^zB1qC5@xD3&y", "vN2wX8#LmS4$pQ6!", "dK4@xD6&yE8*zF1^", "zX7#LmP3$qN9!wV2", "eM5&yF9*zG2^aH4@",
+            "fP1!qR3$wS5#tT7*", "gQ8^zH2@aJ4&bK6$", "hR9*aK3#bL5!cM7%", "jS2$bL4!cM6*dN8^", "kT3%cM5*dN7^eP9@",
+            "lU4^dN6@eP8$fQ1*", "mV5@eP7$fQ9*gR2#", "nW6$fQ8*gR1#hS3!", "pX7*gR9#hS2!jT4%", "qY8#hS1!jT3%kU5^",
+            "rZ9!jT2%kU4^lV6@", "sA1%kU3^lV5@mW7$", "tB2^lV4@mW6$nX8*", "uC3@mW5$nX7*pY9#", "vD4$nX6*pY8#qZ1!",
+            "wE5*pY7#qZ9!rA2%", "xF6#qZ8!rA1%sB3^", "yG7!rA9%sB2^tC4@", "zH8%sB1^tC3@uD5$", "aJ9^tC2@uD4$vE6*",
+            "bK1@uD3$vE5*wF7#", "cL2$vE4*wF6#xG8!", "dM3*wF5#xG7!yH9%", "eN4#xG6!yH8%zJ1^", "fP5!yH7%zJ9^aK2@",
+            "gQ6%zJ8^aK1@bL3$", "hR7^aK9@bL2$cM4*", "jS8@bL1$cM3*dN5#", "kT9$cM2*dN4#eP6!", "lU1*dN3#eP5!fQ7%",
+            "mV2#eP4!fQ6%gR8^", "nW3!fQ5%gR7^hS9@", "pX4%gR6^hS8@jT1$", "qY5^hS7@jT9$kU2*", "rZ6@jT8$kU1*lV3#",
+            "sA7$kU9*lV2#mW4!", "tB8*lV1#mW3!nX5%", "uC9#mW2!nX4%pY6^", "vD1!nX3%pY5^qZ7@", "wE2%pY4^qZ6@rA8$",
+            "N1#aB2$cD3%eF4^g", "H5&jK6*mL7(nP8)q", "Q9!wE8@rT7#yU6$i", "O5%pI4^uY3&tR2*e", "A1@sD2#fG3$hJ4%k",
+            "L5^zX6&cC7*vB8(n", "M9)qW8!eR7@tY6#u", "I5$oP4%aS3&dF2*g", "H1^jK2@lZ3#xC4$v", "B5%nM6^qW7&eR8*t",
+            "Y9!uI8@oP7#aSD6$", "F5%gH4^jK3&lZ2*x", "C1@vB2#nM3$qW4%e", "R5^tY6&uI7*oP8(a", "S9)dF8!gH7@jK6#l",
+            "Z5$xC4%vB3&nM2*q", "W1^eR2@tY3#uI4$o", "P5%aS6^dF7&gH8*j", "K9!lZ8@xC7#vB6$n", "M5%qW4^eR3&tY2*u",
+            "I1@oP2#aS3$dF4%g", "H5^jK6&lZ7*xC8(v", "B9)nM8!qW7@eR6#t", "Y5$uI4%oP3&aS2*d", "F1^gH2@jK3#lZ4$x",
+            "C5%vB6^nM7&qW8*e", "R9!tY8@uI7#oP6$a", "S5%dF4^gH3&jK2*l", "Z1@xC2#vB3$nM4%q", "W5^eR6&tY7*uI8(o",
+            "P9)aS8!dF7@gH6#j", "K5$lZ4%xC3&vB2*n", "M1^qW2@eR3#tY4$u", "I5%oP6^aS7&dF8*g", "H9!jK8@lZ7#xC6$v",
+            "B5%nM4^qW3&eR2*t", "Y1@uI2#oP3$aS4%d", "F5^gH6&jK7*lZ8(x", "C9)vB8!nM7@qW6#e", "R5$tY4%uI3&oP2*a",
+            "S1^dF2@gH3#jK4$l", "Z5%xC6^vB7&nM8*q", "W9!eR8@tY7#uI6$o", "P5%aS4^dF3&gH2*j", "K1@lZ2#xC3$vB4%n"
+        ];
+
+        const copiedSet = new Set();
+        const passwordStreamEl = document.getElementById('password-stream');
+        const statCopiedEl = document.getElementById('stat-copied');
+        const toast = document.getElementById('toast');
+
+        function renderPasswordStream() {
+            passwordStreamEl.innerHTML = '';
+
+            FIXED_PASSWORDS_100.forEach((pass, index) => {
+                const isCopied = copiedSet.has(index);
+
+                const spanItem = document.createElement('span');
+                spanItem.className = `pass-item font-mono tracking-wider ${isCopied ? 'copied' : ''}`;
+                spanItem.id = `pass-item-${index}`;
+                spanItem.textContent = pass;
+                spanItem.title = `Klicke zum Kopieren`;
+                spanItem.onclick = () => copyPassword(index);
+
+                passwordStreamEl.appendChild(spanItem);
+            });
+
+            updateStats();
+        }
+
+        function copyPassword(index) {
+            const passwordText = FIXED_PASSWORDS_100[index];
+
+            const tempInput = document.createElement('textarea');
+            tempInput.value = passwordText;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+
+            try {
+                document.execCommand('copy');
+                copiedSet.add(index);
+
+                const itemEl = document.getElementById(`pass-item-${index}`);
+                if (itemEl) {
+                    itemEl.classList.add('copied');
+                }
+
+                updateStats();
+                showToast(`PASSWORT KOPIERT: ${passwordText}`);
+            } catch (err) {
+                showToast('FEHLER BEIM KOPIEREN!');
+            }
+
+            document.body.removeChild(tempInput);
+        }
+
+        function updateStats() {
+            if (statCopiedEl) {
+                statCopiedEl.textContent = `${copiedSet.size} / 100`;
+            }
+        }
+
+        let toastTimeout;
+        function showToast(message) {
+            const toastMsg = document.getElementById('toast-message');
+            if (toastMsg && toast) {
+                toastMsg.textContent = message;
+
+                toast.classList.remove('-translate-y-20', 'opacity-0');
+                toast.classList.add('translate-y-0', 'opacity-100');
+
+                clearTimeout(toastTimeout);
+                toastTimeout = setTimeout(() => {
+                    toast.classList.remove('translate-y-0', 'opacity-100');
+                    toast.classList.add('-translate-y-20', 'opacity-0');
+                }, 1800);
+            }
+        }
+
+        window.onload = function() {
+            renderPasswordStream();
+        };
+    </script>
+</body>
+</html>
